@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { 
@@ -14,13 +14,14 @@ import {
 import GlassCard from '../components/GlassCard';
 
 const UploadPage = () => {
-  const { uploadDocument } = useApp();
+  const { uploadDocument, uploadGeneratedTest } = useApp();
   const navigate = useNavigate();
 
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [conversionStatus, setConversionStatus] = useState(''); // 'uploading', 'processing', 'generating', 'ready'
   const [generatedTestId, setGeneratedTestId] = useState(null);
+  const [conversionError, setConversionError] = useState('');
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -48,20 +49,43 @@ const UploadPage = () => {
     }
   };
 
-  const processFile = (file) => {
+  const processFile = async (file) => {
     const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
     setSelectedFile({
       name: file.name,
       size: `${sizeMB} MB`
     });
+    setConversionError('');
 
-    // Invoke state conversion tracker
-    uploadDocument(file.name, `${sizeMB} MB`, (status, testId) => {
-      setConversionStatus(status);
-      if (status === 'ready' && testId) {
-        setGeneratedTestId(testId);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setConversionStatus('uploading');
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      setConversionStatus('processing');
+      const response = await fetch('http://localhost:5000/api/convert-to-cbt', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Conversion failed.');
       }
-    });
+
+      setConversionStatus('generating');
+      const testId = uploadGeneratedTest(file.name, `${sizeMB} MB`, data.test);
+
+      setGeneratedTestId(testId);
+      setConversionStatus('ready');
+    } catch (error) {
+      console.error(error);
+      setConversionStatus('error');
+      setConversionError(error.message || 'Could not convert this file. Please try again.');
+    }
   };
 
   // Quick Mock file select to speed up testing
@@ -70,6 +94,7 @@ const UploadPage = () => {
       name: name,
       size: '1.2 MB'
     });
+    setConversionError('');
     uploadDocument(name, '1.2 MB', (status, testId) => {
       setConversionStatus(status);
       if (status === 'ready' && testId) {
@@ -140,9 +165,16 @@ const UploadPage = () => {
                   </div>
                 </div>
                 <div className="text-xs font-semibold uppercase text-accentBlue font-mono">
-                  {conversionStatus === 'ready' ? 'Complete' : 'Processing'}
+                  {conversionStatus === 'ready' ? 'Complete' : conversionStatus === 'error' ? 'Failed' : 'Processing'}
                 </div>
               </div>
+
+              {conversionError && (
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-[11px] leading-relaxed flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{conversionError}</span>
+                </div>
+              )}
 
               {/* Steps timeline vertical */}
               <div className="space-y-6 relative pl-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-white/5">
@@ -224,6 +256,7 @@ const UploadPage = () => {
                       setSelectedFile(null);
                       setConversionStatus('');
                       setGeneratedTestId(null);
+                      setConversionError('');
                     }}
                     className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold text-white transition-all"
                   >

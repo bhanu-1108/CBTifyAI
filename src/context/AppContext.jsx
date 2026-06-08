@@ -437,6 +437,36 @@ export const AppProvider = ({ children }) => {
     }, 1500);
   };
 
+  const uploadGeneratedTest = (filename, size, generatedTest) => {
+    const docId = `doc-${Date.now()}`;
+    const testId = `test-${Date.now()}`;
+    const questions = Array.isArray(generatedTest.questions) ? generatedTest.questions : [];
+
+    const newTest = {
+      id: testId,
+      title: generatedTest.title || `AI-Generated Test: ${filename.split('.')[0]}`,
+      description: generatedTest.description || `A customized assessment generated from your uploaded file "${filename}".`,
+      timeLimit: Number(generatedTest.timeLimit) || Math.max(5, questions.length * 3),
+      questions,
+      createdBy: currentUser ? currentUser.id : 'anonymous',
+      createdAt: new Date().toISOString()
+    };
+
+    const newDoc = {
+      id: docId,
+      filename,
+      size,
+      status: 'ready',
+      testId,
+      createdAt: new Date().toISOString()
+    };
+
+    setTests(prev => [newTest, ...prev]);
+    setDocuments(prev => [newDoc, ...prev]);
+
+    return testId;
+  };
+
   // Submit Test Grade
   const submitTest = (testId, answers, timeSpent) => {
     const test = tests.find(t => t.id === testId);
@@ -666,6 +696,7 @@ export const AppProvider = ({ children }) => {
       logout,
       forgotPassword,
       uploadDocument,
+      uploadGeneratedTest,
       submitTest,
       addStudent,
       scheduleExam,
