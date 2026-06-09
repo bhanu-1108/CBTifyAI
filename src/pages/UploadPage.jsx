@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
 
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 const UploadPage = () => {
   const { uploadDocument, uploadGeneratedTest } = useApp();
   const navigate = useNavigate();
@@ -65,7 +67,7 @@ const UploadPage = () => {
       await new Promise(resolve => setTimeout(resolve, 250));
 
       setConversionStatus('processing');
-      const response = await fetch('http://localhost:5000/api/convert-to-cbt', {
+      const response = await fetch(`${apiBaseUrl}/api/convert-to-cbt`, {
         method: 'POST',
         body: formData
       });

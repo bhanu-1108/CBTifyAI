@@ -6,10 +6,15 @@ import multer from "multer";
 import { PDFParse } from "pdf-parse";
 import Tesseract from "tesseract.js";
 import { mkdir, readFile, unlink } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 await mkdir("uploads", { recursive: true });
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distDir = path.resolve(__dirname, "../dist");
 const upload = multer({
   dest: "uploads/",
   limits: {
@@ -204,6 +209,8 @@ Return only valid JSON with this exact shape:
   "description": "string",
   "timeLimit": 30,
   "questions": [
+
+  
     {
       "questionText": "string",
       "options": ["string", "string", "string", "string"],
@@ -323,6 +330,14 @@ app.post("/api/convert-to-cbt", upload.single("file"), async (req, res) => {
     await unlink(file.path).catch(() => {});
   }
 });
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(distDir));
+
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(path.join(distDir, "index.html"));
+  });
+}
 
 const port = process.env.PORT || 5000;
 
